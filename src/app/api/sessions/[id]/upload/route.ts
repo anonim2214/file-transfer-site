@@ -13,8 +13,8 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Allow long-running uploads for big files.
-export const maxDuration = 600;
+// Allow long-running uploads for big files (hobby plan max).
+export const maxDuration = 300;
 
 export async function POST(
   req: NextRequest,

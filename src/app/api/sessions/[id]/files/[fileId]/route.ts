@@ -5,7 +5,7 @@ import { store, touch } from "@/lib/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 600;
+export const maxDuration = 300;
 
 export async function GET(
   _req: NextRequest,
