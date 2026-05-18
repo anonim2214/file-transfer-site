@@ -1,11 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import {
-  rotateCode,
-  store,
-  touch,
-  type Session,
-} from "@/lib/store";
+import { getSession, rotateCode, touch } from "@/lib/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,9 +17,7 @@ function formatBytes(n: number): string {
 export default async function ReceivePage() {
   const jar = await cookies();
   const existingId = jar.get(COOKIE)?.value;
-  const session: Session | undefined = existingId
-    ? store.sessions.get(existingId)
-    : undefined;
+  const session = existingId ? await getSession(existingId) : null;
 
   if (!session) {
     return (
@@ -39,15 +32,16 @@ export default async function ReceivePage() {
     );
   }
 
-  touch(session);
+  await touch(session);
 
-  if (session.status === "waiting" && Date.now() > session.codeExpiresAt) {
-    rotateCode(session);
+  let current = session;
+  if (current.status === "waiting" && Date.now() > current.codeExpiresAt) {
+    current = await rotateCode(current);
   }
 
   const secondsLeft =
-    session.status === "waiting"
-      ? Math.max(0, Math.ceil((session.codeExpiresAt - Date.now()) / 1000))
+    current.status === "waiting"
+      ? Math.max(0, Math.ceil((current.codeExpiresAt - Date.now()) / 1000))
       : 0;
 
   return (
@@ -59,11 +53,11 @@ export default async function ReceivePage() {
         <Link href="/">← На главную</Link>
       </p>
 
-      {session.status === "waiting" ? (
+      {current.status === "waiting" ? (
         <>
           <h1>Код для отправителя</h1>
           <p style={{ fontFamily: "monospace", fontSize: "2.5rem" }}>
-            {session.code}
+            {current.code}
           </p>
           <p>
             Код обновится через {secondsLeft} с. Страница обновляется сама
@@ -73,27 +67,16 @@ export default async function ReceivePage() {
       ) : (
         <>
           <h1>Файлы</h1>
-          {session.files.length === 0 ? (
+          {current.files.length === 0 ? (
             <p>Отправитель подключён. Ожидание файлов…</p>
           ) : (
             <ul>
-              {session.files.map((f) => (
+              {current.files.map((f) => (
                 <li key={f.id}>
-                  {f.status === "ready" ? (
-                    <a
-                      href={`/api/sessions/${session.id}/files/${f.id}`}
-                      download={f.name}
-                    >
-                      {f.name}
-                    </a>
-                  ) : (
-                    <span>{f.name}</span>
-                  )}{" "}
-                  ({formatBytes(f.uploadedBytes)}
-                  {f.size ? ` / ${formatBytes(f.size)}` : ""}){" — "}
-                  {f.status === "ready" && "готов"}
-                  {f.status === "uploading" && "загружается"}
-                  {f.status === "error" && "ошибка"}
+                  <a href={f.url} download={f.name}>
+                    {f.name}
+                  </a>{" "}
+                  ({formatBytes(f.size)})
                 </li>
               ))}
             </ul>

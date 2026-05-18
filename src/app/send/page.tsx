@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useState } from "react";
+import { upload } from "@vercel/blob/client";
 
 type FileItem = {
   key: string;
@@ -18,47 +19,6 @@ function formatBytes(n: number): string {
   return `${(n / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-function uploadFile(
-  sessionId: string,
-  file: File,
-  onProgress: (p: number) => void,
-): { promise: Promise<void>; abort: () => void } {
-  const xhr = new XMLHttpRequest();
-  const promise = new Promise<void>((resolve, reject) => {
-    const params = new URLSearchParams({
-      name: file.name,
-      size: String(file.size),
-      type: file.type || "application/octet-stream",
-    });
-    xhr.open("POST", `/api/sessions/${sessionId}/upload?${params}`);
-    xhr.setRequestHeader(
-      "Content-Type",
-      file.type || "application/octet-stream",
-    );
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress(e.loaded / e.total);
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        onProgress(1);
-        resolve();
-      } else {
-        let msg = "upload failed";
-        try {
-          msg = JSON.parse(xhr.responseText)?.error || msg;
-        } catch {
-          /* ignore */
-        }
-        reject(new Error(msg));
-      }
-    };
-    xhr.onerror = () => reject(new Error("network error"));
-    xhr.onabort = () => reject(new Error("aborted"));
-    xhr.send(file);
-  });
-  return { promise, abort: () => xhr.abort() };
-}
-
 export default function SendPage() {
   const [code, setCode] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -67,7 +27,6 @@ export default function SendPage() {
 
   const [files, setFiles] = useState<FileItem[]>([]);
   const [uploading, setUploading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   async function submitCode(e: React.FormEvent) {
     e.preventDefault();
@@ -120,14 +79,25 @@ export default function SendPage() {
         ),
       );
       try {
-        const { promise } = uploadFile(sessionId, item.file, (p) => {
-          setFiles((prev) =>
-            prev.map((f) =>
-              f.key === item.key ? { ...f, progress: p } : f,
-            ),
-          );
+        await upload(item.file.name, item.file, {
+          access: "public",
+          handleUploadUrl: "/api/blob/upload",
+          clientPayload: JSON.stringify({
+            sessionId,
+            name: item.file.name,
+            type: item.file.type || "application/octet-stream",
+            size: item.file.size,
+          }),
+          onUploadProgress: (ev) => {
+            setFiles((prev) =>
+              prev.map((f) =>
+                f.key === item.key
+                  ? { ...f, progress: ev.percentage / 100 }
+                  : f,
+              ),
+            );
+          },
         });
-        await promise;
         setFiles((prev) =>
           prev.map((f) =>
             f.key === item.key
@@ -191,7 +161,6 @@ export default function SendPage() {
 
       <p>
         <input
-          ref={inputRef}
           type="file"
           multiple
           disabled={uploading}
@@ -204,14 +173,28 @@ export default function SendPage() {
 
       {files.length > 0 && (
         <ul>
-          {files.map((f) => (
-            <SendFileRow
-              key={f.key}
-              item={f}
-              onRemove={() => removeFile(f.key)}
-              uploading={uploading}
-            />
-          ))}
+          {files.map((f) => {
+            const pct = Math.round(f.progress * 100);
+            return (
+              <li key={f.key}>
+                {f.file.name} ({formatBytes(f.file.size)}){" — "}
+                {f.status === "pending" && (
+                  <button
+                    type="button"
+                    onClick={() => removeFile(f.key)}
+                    disabled={uploading}
+                  >
+                    удалить
+                  </button>
+                )}
+                {f.status === "uploading" && <span>{pct}%</span>}
+                {f.status === "done" && <span>отправлено</span>}
+                {f.status === "error" && (
+                  <span title={f.error}>ошибка</span>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -230,30 +213,5 @@ export default function SendPage() {
         </button>
       </p>
     </main>
-  );
-}
-
-function SendFileRow({
-  item,
-  onRemove,
-  uploading,
-}: {
-  item: FileItem;
-  onRemove: () => void;
-  uploading: boolean;
-}) {
-  const pct = Math.round(item.progress * 100);
-  return (
-    <li>
-      {item.file.name} ({formatBytes(item.file.size)}){" — "}
-      {item.status === "pending" && (
-        <button type="button" onClick={onRemove} disabled={uploading}>
-          удалить
-        </button>
-      )}
-      {item.status === "uploading" && <span>{pct}%</span>}
-      {item.status === "done" && <span>отправлено</span>}
-      {item.status === "error" && <span title={item.error}>ошибка</span>}
-    </li>
   );
 }

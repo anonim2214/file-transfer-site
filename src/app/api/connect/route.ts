@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { consumeCode, findByCode, sessionView } from "@/lib/store";
+import { consumeCode, findByCode } from "@/lib/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,13 +19,13 @@ export async function POST(req: NextRequest) {
   if (!code) {
     return NextResponse.json({ error: "code required" }, { status: 400 });
   }
-  const session = findByCode(code);
+  const session = await findByCode(code);
   if (!session) {
     return NextResponse.json(
-      { error: "Code is invalid or expired" },
+      { error: "Код неверный или истёк" },
       { status: 404 },
     );
   }
-  consumeCode(session);
-  return NextResponse.json(sessionView(session));
+  await consumeCode(session);
+  return NextResponse.json({ sessionId: session.id });
 }
