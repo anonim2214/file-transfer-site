@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import {
-  createSession,
   rotateCode,
   store,
   touch,
@@ -24,18 +22,21 @@ function formatBytes(n: number): string {
 export default async function ReceivePage() {
   const jar = await cookies();
   const existingId = jar.get(COOKIE)?.value;
-  let session: Session | undefined = existingId
+  const session: Session | undefined = existingId
     ? store.sessions.get(existingId)
     : undefined;
 
   if (!session) {
-    session = createSession();
-    jar.set(COOKIE, session.id, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-    });
-    redirect("/receive");
+    return (
+      <main>
+        <meta httpEquiv="refresh" content="0;url=/api/receive/init" />
+        <p>Получение кода…</p>
+        <p>
+          Если страница не открылась сама,{" "}
+          <a href="/api/receive/init">нажмите тут</a>.
+        </p>
+      </main>
+    );
   }
 
   touch(session);
