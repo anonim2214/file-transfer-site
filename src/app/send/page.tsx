@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 type FileItem = {
   key: string;
@@ -153,41 +153,57 @@ export default function SendPage() {
   }
 
   if (!sessionId) {
-    return <CodeForm
-      code={code}
-      setCode={setCode}
-      connecting={connecting}
-      connectError={connectError}
-      onSubmit={submitCode}
-    />;
+    return (
+      <main>
+        <p>
+          <Link href="/">← На главную</Link>
+        </p>
+        <h1>Введите код получателя</h1>
+        <p>Получатель видит код на своём экране. Код действует 30 секунд.</p>
+        <form onSubmit={submitCode}>
+          <input
+            inputMode="numeric"
+            autoFocus
+            value={code}
+            onChange={(e) =>
+              setCode(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))
+            }
+            placeholder="123456"
+          />{" "}
+          <button
+            type="submit"
+            disabled={connecting || code.trim().length === 0}
+          >
+            {connecting ? "Подключение…" : "Подключиться"}
+          </button>
+        </form>
+        {connectError && <p>Ошибка: {connectError}</p>}
+      </main>
+    );
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6">
-      <Link
-        href="/"
-        className="text-sm text-zinc-500 hover:text-zinc-300"
-      >
-        ← На главную
-      </Link>
+    <main>
+      <p>
+        <Link href="/">← На главную</Link>
+      </p>
+      <p>Соединение установлено. Добавьте файлы и нажмите «Отправить».</p>
 
-      <div className="rounded-2xl border border-emerald-900/50 bg-emerald-900/10 px-5 py-4">
-        <div className="text-sm font-medium text-emerald-300">
-          Соединение установлено
-        </div>
-        <div className="mt-1 text-sm text-zinc-400">
-          Добавьте файлы и нажмите «Отправить».
-        </div>
-      </div>
-
-      <FilePicker
-        inputRef={inputRef}
-        onPick={addFiles}
-        disabled={uploading}
-      />
+      <p>
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          disabled={uploading}
+          onChange={(e) => {
+            addFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+      </p>
 
       {files.length > 0 && (
-        <ul className="space-y-3">
+        <ul>
           {files.map((f) => (
             <SendFileRow
               key={f.key}
@@ -199,130 +215,21 @@ export default function SendPage() {
         </ul>
       )}
 
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-zinc-500">
-          {files.length === 0
-            ? "Файлов пока нет"
-            : `${files.length} ${files.length === 1 ? "файл" : "файлов"} в очереди`}
-        </div>
+      <p>
+        {files.length === 0
+          ? "Файлов пока нет."
+          : `${files.length} ${files.length === 1 ? "файл" : "файлов"} в очереди.`}
+      </p>
+      <p>
         <button
           type="button"
           onClick={startUpload}
-          disabled={
-            uploading || files.every((f) => f.status !== "pending")
-          }
-          className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-emerald-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
+          disabled={uploading || files.every((f) => f.status !== "pending")}
         >
           {uploading ? "Отправка…" : "Отправить"}
         </button>
-      </div>
-    </div>
-  );
-}
-
-function CodeForm({
-  code,
-  setCode,
-  connecting,
-  connectError,
-  onSubmit,
-}: {
-  code: string;
-  setCode: (v: string) => void;
-  connecting: boolean;
-  connectError: string | null;
-  onSubmit: (e: React.FormEvent) => void;
-}) {
-  return (
-    <div className="flex flex-1 flex-col gap-8">
-      <Link
-        href="/"
-        className="text-sm text-zinc-500 hover:text-zinc-300"
-      >
-        ← На главную
-      </Link>
-
-      <div className="flex flex-1 flex-col items-center justify-center gap-6">
-        <div className="space-y-2 text-center">
-          <h1 className="text-2xl font-semibold">Введите код получателя</h1>
-          <p className="text-sm text-zinc-400">
-            Получатель видит код на своём экране. Код действует 30 секунд.
-          </p>
-        </div>
-
-        <form onSubmit={onSubmit} className="flex w-full max-w-sm flex-col gap-3">
-          <input
-            inputMode="numeric"
-            autoFocus
-            value={code}
-            onChange={(e) =>
-              setCode(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))
-            }
-            placeholder="123456"
-            className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-center font-mono text-3xl tracking-[0.4em] outline-none focus:border-zinc-600"
-          />
-          <button
-            type="submit"
-            disabled={connecting || code.trim().length === 0}
-            className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-medium text-emerald-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
-          >
-            {connecting ? "Подключение…" : "Подключиться"}
-          </button>
-          {connectError && (
-            <div className="text-center text-sm text-rose-400">
-              {connectError}
-            </div>
-          )}
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function FilePicker({
-  inputRef,
-  onPick,
-  disabled,
-}: {
-  inputRef: React.RefObject<HTMLInputElement | null>;
-  onPick: (files: FileList | null) => void;
-  disabled: boolean;
-}) {
-  const [dragOver, setDragOver] = useState(false);
-  return (
-    <label
-      onDragOver={(e) => {
-        e.preventDefault();
-        if (!disabled) setDragOver(true);
-      }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragOver(false);
-        if (disabled) return;
-        onPick(e.dataTransfer.files);
-      }}
-      className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition ${
-        dragOver
-          ? "border-emerald-500 bg-emerald-500/5"
-          : "border-zinc-800 hover:border-zinc-700"
-      } ${disabled ? "pointer-events-none opacity-50" : ""}`}
-    >
-      <div className="text-sm font-medium">
-        Перетащите файлы сюда
-      </div>
-      <div className="text-xs text-zinc-500">или нажмите, чтобы выбрать</div>
-      <input
-        ref={inputRef}
-        type="file"
-        multiple
-        className="hidden"
-        onChange={(e) => {
-          onPick(e.target.files);
-          e.target.value = "";
-        }}
-      />
-    </label>
+      </p>
+    </main>
   );
 }
 
@@ -337,46 +244,16 @@ function SendFileRow({
 }) {
   const pct = Math.round(item.progress * 100);
   return (
-    <li className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <div className="truncate font-medium">{item.file.name}</div>
-          <div className="text-xs text-zinc-500">
-            {formatBytes(item.file.size)}
-          </div>
-        </div>
-        <div className="shrink-0 text-xs">
-          {item.status === "pending" && (
-            <button
-              type="button"
-              onClick={onRemove}
-              disabled={uploading}
-              className="text-zinc-500 hover:text-zinc-300 disabled:opacity-50"
-            >
-              удалить
-            </button>
-          )}
-          {item.status === "uploading" && (
-            <span className="tabular-nums text-zinc-400">{pct}%</span>
-          )}
-          {item.status === "done" && (
-            <span className="text-emerald-400">отправлено</span>
-          )}
-          {item.status === "error" && (
-            <span className="text-rose-400" title={item.error}>
-              ошибка
-            </span>
-          )}
-        </div>
-      </div>
-      {(item.status === "uploading" || item.status === "done") && (
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-800">
-          <div
-            className="h-full bg-emerald-500 transition-[width] duration-200"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
+    <li>
+      {item.file.name} ({formatBytes(item.file.size)}){" — "}
+      {item.status === "pending" && (
+        <button type="button" onClick={onRemove} disabled={uploading}>
+          удалить
+        </button>
       )}
+      {item.status === "uploading" && <span>{pct}%</span>}
+      {item.status === "done" && <span>отправлено</span>}
+      {item.status === "error" && <span title={item.error}>ошибка</span>}
     </li>
   );
 }
