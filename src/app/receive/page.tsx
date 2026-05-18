@@ -82,6 +82,9 @@ export default async function ReceivePage() {
             </ul>
           )}
           <p>Страница обновляется сама каждые 5 секунд.</p>
+          <form action="/api/receive/reset" method="POST">
+            <button type="submit">Новая сессия</button>
+          </form>
         </>
       )}
     </main>
