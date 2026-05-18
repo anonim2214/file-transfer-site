@@ -21,7 +21,6 @@ export async function POST(req: Request) {
           throw new Error("session not connected");
         }
         return {
-          allowedContentTypes: ["*/*"],
           // Stashed in onUploadCompleted's tokenPayload.
           tokenPayload: JSON.stringify({
             sessionId,
